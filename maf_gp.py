@@ -34,12 +34,15 @@ def cov_matrix_emulator(input_xy_1, input_theta_1, input_xy_2, input_theta_2, st
     input_theta_2 /= length_theta
 
     # calculate the covariance matrix
-    dist = jnp.zeros((input_xy_1.shape[0], input_xy_2.shape[0]))
-    for i in range(input_xy_1.shape[1]):
-        dist += (input_xy_1[:,i][:,None] - input_xy_2[:,i])**2
+    dist = cdist(input_xy_1, input_xy_2)
+    dist += cdist(input_theta_1, input_theta_2)
 
-    for i in range(input_theta_1.shape[1]):
-        dist += (input_theta_1[:,i][:,None] - input_theta_2[:,i])**2
+    # dist = jnp.zeros((input_xy_1.shape[0], input_xy_2.shape[0]))
+    # for i in range(input_xy_1.shape[1]):
+    #     dist += (input_xy_1[:,i][:,None] - input_xy_2[:,i])**2
+
+    # for i in range(input_theta_1.shape[1]):
+    #     dist += (input_theta_1[:,i][:,None] - input_theta_2[:,i])**2
 
     cov_matrix = stdev**2 * jnp.exp(-dist)
     
@@ -50,6 +53,28 @@ def cov_matrix_emulator(input_xy_1, input_theta_1, input_xy_2, input_theta_2, st
     #     cov_matrix = cov_matrix.at[:,i].set(stdev**2 * jnp.exp( - dist_xy - dist_theta))
     
     return cov_matrix
+
+def one_to_one_dist(x, y):
+    """
+    calculate the square euclidean distance between two vectors (or scalars)
+
+    x: n-dimensional vector or scalar (x and y must have the same shape)
+    y: n-dimensional vector or scalar
+    """
+    return jnp.sum((x - y)**2.0)
+
+@jax.jit
+def cdist(X,Y):
+    """
+    calculate the square euclidean distance between each pair of the two collections of inputs
+
+    X: m_X by n array of m_X observations in an n-dimensional space
+    Y: m_Y by n array of m_Y observations in an n-dimensional space
+    """
+    one_to_multi = jax.vmap(one_to_one_dist, (0,None),0)
+    multi_to_multi = jax.vmap(one_to_multi, (None,0),1)
+    return multi_to_multi(X,Y)
+
 
 def model(input_xy_exp, input_xy_sim, input_theta_sim, data_exp, data_sim, add_bias_E1=False, add_bias_alpha=False):
     """
